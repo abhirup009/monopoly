@@ -1,0 +1,1 @@
+"""Monopoly AI Agent Service."""
