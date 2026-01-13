@@ -1,19 +1,17 @@
 """Tests for bankruptcy detection and handling."""
 
-import pytest
-from uuid import uuid4
 
+from src.db.models import PlayerModel, PropertyStateModel
 from src.engine.bankruptcy import (
-    check_bankruptcy,
     can_afford,
+    check_bankruptcy,
+    count_active_players,
     get_net_worth,
+    get_winner,
     handle_bankruptcy_to_bank,
     handle_bankruptcy_to_player,
-    count_active_players,
-    get_winner,
     is_game_over,
 )
-from src.db.models import PlayerModel, PropertyStateModel
 
 
 class TestCheckBankruptcy:

@@ -5,13 +5,11 @@ from dataclasses import dataclass
 from enum import Enum
 from uuid import UUID
 
-from src.data.board import get_space
 from src.data.properties import get_property
 from src.db.models import GameModel, PlayerModel, PropertyStateModel
 from src.engine.bankruptcy import (
     BankruptcyResult,
     check_bankruptcy,
-    count_active_players,
     get_winner,
     handle_bankruptcy_to_bank,
     handle_bankruptcy_to_player,
@@ -37,16 +35,12 @@ from src.engine.jail_rules import (
     can_pay_jail_fine,
     can_roll_for_doubles,
     can_use_jail_card,
-    get_jail_options,
     pay_jail_fine,
     roll_for_doubles,
-    should_force_jail_payment,
     use_jail_card,
 )
 from src.engine.movement import (
-    GO_POSITION,
     GO_SALARY,
-    GO_TO_JAIL_POSITION,
     JAIL_POSITION,
     MovementResult,
     get_property_id_at_position,
@@ -54,7 +48,6 @@ from src.engine.movement import (
     get_space_type,
     get_tax_amount,
     move_player,
-    send_to_jail,
 )
 from src.engine.property_rules import (
     calculate_rent,
@@ -214,7 +207,6 @@ class GameManager:
         elif phase == TurnPhase.AWAITING_BUY_DECISION:
             # Check what space we're on
             position = player.position
-            space_type = get_space_type(position)
             property_id = get_property_id_at_position(position)
 
             if property_id:
@@ -299,7 +291,6 @@ class GameManager:
             ActionResult describing what happened
         """
         player = self.current_player
-        phase = TurnPhase(self.game.turn_phase)
 
         if action_type == ActionType.ROLL_DICE:
             return self._handle_roll_dice(player)
