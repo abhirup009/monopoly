@@ -67,12 +67,11 @@ from src.engine.property_rules import (
 class TurnPhase(str, Enum):
     """Phases within a turn."""
 
-    PRE_ROLL = "pre_roll"  # Before dice roll, handle jail options
-    ROLL_DICE = "roll_dice"  # Rolling dice
-    MOVING = "moving"  # Player is moving
-    LAND_ACTION = "land_action"  # Handle landing on space (buy property, etc.)
-    POST_ROLL = "post_roll"  # After main action (can build houses, etc.)
-    TURN_END = "turn_end"  # Turn is ending
+    PRE_ROLL = "pre_roll"  # Before dice roll, initial state
+    AWAITING_ROLL = "awaiting_roll"  # Waiting for player to roll dice
+    AWAITING_BUY_DECISION = "awaiting_buy_decision"  # Player landed on unowned property
+    AWAITING_JAIL_DECISION = "awaiting_jail_decision"  # Player in jail, needs decision
+    POST_ROLL = "post_roll"  # After main action (can build houses, end turn)
 
 
 class ActionType(str, Enum):
@@ -153,7 +152,7 @@ class GameManager:
         phase = TurnPhase(self.game.turn_phase)
         actions = []
 
-        if phase == TurnPhase.PRE_ROLL:
+        if phase == TurnPhase.PRE_ROLL or phase == TurnPhase.AWAITING_ROLL:
             if player.in_jail:
                 # Jail options
                 if can_pay_jail_fine(player)[0]:
@@ -187,7 +186,32 @@ class GameManager:
                     )
                 )
 
-        elif phase == TurnPhase.LAND_ACTION:
+        elif phase == TurnPhase.AWAITING_JAIL_DECISION:
+            # Jail decision phase
+            if can_pay_jail_fine(player)[0]:
+                actions.append(
+                    ValidAction(
+                        action_type=ActionType.PAY_JAIL_FINE,
+                        cost=JAIL_FINE,
+                        description=f"Pay ${JAIL_FINE} to get out of jail",
+                    )
+                )
+            if can_use_jail_card(player)[0]:
+                actions.append(
+                    ValidAction(
+                        action_type=ActionType.USE_JAIL_CARD,
+                        description="Use Get Out of Jail Free card",
+                    )
+                )
+            if can_roll_for_doubles(player)[0]:
+                actions.append(
+                    ValidAction(
+                        action_type=ActionType.ROLL_FOR_DOUBLES,
+                        description="Try to roll doubles to escape",
+                    )
+                )
+
+        elif phase == TurnPhase.AWAITING_BUY_DECISION:
             # Check what space we're on
             position = player.position
             space_type = get_space_type(position)
@@ -318,7 +342,7 @@ class GameManager:
                 success=True,
                 message="Three doubles in a row! Go to jail!",
                 dice_roll=dice,
-                next_phase=TurnPhase.TURN_END,
+                next_phase=TurnPhase.POST_ROLL,
                 turn_complete=True,
             )
 
@@ -342,7 +366,7 @@ class GameManager:
                 message=f"Rolled {dice.total} and landed on Go To Jail!",
                 dice_roll=dice,
                 movement=movement,
-                next_phase=TurnPhase.TURN_END,
+                next_phase=TurnPhase.POST_ROLL,
                 turn_complete=True,
             )
 
@@ -423,7 +447,7 @@ class GameManager:
                 message=f"Rolled {dice.total} and landed on {prop['name']} (unowned).",
                 dice_roll=dice,
                 movement=movement,
-                next_phase=TurnPhase.LAND_ACTION,
+                next_phase=TurnPhase.AWAITING_BUY_DECISION,
             )
         elif owner_id == player.id:
             # Own property
@@ -489,7 +513,7 @@ class GameManager:
                 dice_roll=dice,
                 movement=movement,
                 card_effect=effect,
-                next_phase=TurnPhase.TURN_END,
+                next_phase=TurnPhase.POST_ROLL,
                 turn_complete=True,
             )
 
@@ -588,7 +612,7 @@ class GameManager:
                 message=result.message,
                 dice_roll=dice,
                 jail_result=result,
-                next_phase=TurnPhase.TURN_END,
+                next_phase=TurnPhase.POST_ROLL,
                 turn_complete=True,
             )
 

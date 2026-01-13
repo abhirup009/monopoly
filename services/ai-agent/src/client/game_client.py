@@ -10,6 +10,7 @@ from src.client.models import (
     Action,
     ActionResult,
     CreateGameResponse,
+    CreateGameResult,
     GameState,
     ValidActions,
 )
@@ -50,19 +51,29 @@ class GameClient:
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=1, max=10),
     )
-    async def create_game(self, players: list[dict]) -> CreateGameResponse:
+    async def create_game(self, players: list[dict]) -> CreateGameResult:
         """Create a new game.
 
         Args:
             players: List of player configurations with name, model, personality
 
         Returns:
-            CreateGameResponse with game ID and player info
+            CreateGameResult with game ID and player info
         """
         client = await self._get_client()
-        response = await client.post("/game/create", json={"players": players})
+        response = await client.post("/game", json={"players": players})
         response.raise_for_status()
-        return CreateGameResponse(**response.json())
+        create_response = CreateGameResponse(**response.json())
+
+        # Fetch full game state to get player details
+        game_state = await self.get_game_state(create_response.id)
+
+        return CreateGameResult(
+            id=create_response.id,
+            status=create_response.status,
+            players=game_state.players,
+            message=create_response.message,
+        )
 
     @retry(
         stop=stop_after_attempt(3),
@@ -114,7 +125,7 @@ class GameClient:
             ValidActions with list of possible actions
         """
         client = await self._get_client()
-        response = await client.get(f"/game/{game_id}/valid-actions")
+        response = await client.get(f"/game/{game_id}/actions")
         response.raise_for_status()
         return ValidActions(**response.json())
 

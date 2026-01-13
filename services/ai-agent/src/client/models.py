@@ -18,6 +18,9 @@ class TurnPhase(str, Enum):
     """Turn phase values."""
 
     PRE_ROLL = "pre_roll"
+    AWAITING_ROLL = "awaiting_roll"
+    AWAITING_BUY_DECISION = "awaiting_buy_decision"
+    AWAITING_JAIL_DECISION = "awaiting_jail_decision"
     POST_ROLL = "post_roll"
 
 
@@ -50,6 +53,9 @@ class Player(BaseModel):
     is_bankrupt: bool
     player_order: int
 
+    class Config:
+        extra = "ignore"  # Ignore extra fields from API
+
 
 class PropertyState(BaseModel):
     """Property state from game state."""
@@ -67,10 +73,13 @@ class GameState(BaseModel):
     current_player_index: int
     turn_number: int
     turn_phase: TurnPhase
-    free_parking_pool: int
+    free_parking_pool: int = 0
     winner_id: UUID | None = None
     players: list[Player]
     properties: list[PropertyState]
+
+    class Config:
+        extra = "ignore"  # Ignore extra fields from API
 
 
 class ValidAction(BaseModel):
@@ -114,6 +123,15 @@ class CreateGameRequest(BaseModel):
 
 class CreateGameResponse(BaseModel):
     """Response from creating a game."""
+
+    id: UUID
+    status: GameStatus
+    player_count: int
+    message: str
+
+
+class CreateGameResult(BaseModel):
+    """Result with game ID and full player details."""
 
     id: UUID
     status: GameStatus

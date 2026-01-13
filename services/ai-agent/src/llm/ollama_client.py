@@ -105,8 +105,13 @@ class OllamaClient:
             True if Ollama is available and model is loaded
         """
         try:
-            models = await self.client.list()
-            model_names = [m.get("name", "") for m in models.get("models", [])]
+            response = await self.client.list()
+
+            # Handle both object-style (newer) and dict-style (older) responses
+            if hasattr(response, "models"):
+                model_names = [m.model for m in response.models]
+            else:
+                model_names = [m.get("name", "") for m in response.get("models", [])]
 
             # Check if our model is available (handle tags like llama3:8b)
             base_model = self.model.split(":")[0]
