@@ -1,8 +1,7 @@
 """Tests for dice rolling logic."""
 
-import pytest
 
-from src.engine.dice import DiceRoll, roll_dice, is_doubles, get_total
+from src.engine.dice import DiceRoll, get_total, is_doubles, roll_dice
 
 
 class TestDiceRoll:

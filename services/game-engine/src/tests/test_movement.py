@@ -5,15 +5,12 @@ import pytest
 from src.engine.movement import (
     BOARD_SIZE,
     GO_POSITION,
-    JAIL_POSITION,
     GO_TO_JAIL_POSITION,
+    JAIL_POSITION,
+    find_nearest_property_type,
     move_player,
     move_to_position,
     send_to_jail,
-    find_nearest_property_type,
-    get_space_type,
-    get_space_name,
-    get_property_id_at_position,
 )
 
 

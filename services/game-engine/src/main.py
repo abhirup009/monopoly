@@ -1,14 +1,14 @@
 """FastAPI application entry point for Monopoly Game Engine."""
 
-from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from src.api.router import api_router
 from src.config import get_settings
 from src.database import close_db, init_db
-from src.api.router import api_router
 
 settings = get_settings()
 

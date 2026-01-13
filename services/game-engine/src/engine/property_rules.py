@@ -4,7 +4,6 @@ from uuid import UUID
 
 from src.data.properties import (
     COLOR_GROUPS,
-    PROPERTIES,
     RAILROAD_IDS,
     UTILITY_IDS,
     get_property,

@@ -1,8 +1,7 @@
 """Tests for jail mechanics."""
 
-import pytest
-from uuid import uuid4
 
+from src.db.models import PlayerModel
 from src.engine.dice import DiceRoll
 from src.engine.jail_rules import (
     JAIL_FINE,
@@ -10,14 +9,12 @@ from src.engine.jail_rules import (
     JailEscapeMethod,
     can_pay_jail_fine,
     can_use_jail_card,
-    can_roll_for_doubles,
+    get_jail_options,
     pay_jail_fine,
-    use_jail_card,
     roll_for_doubles,
     should_force_jail_payment,
-    get_jail_options,
+    use_jail_card,
 )
-from src.db.models import PlayerModel
 
 
 class TestCanPayJailFine:

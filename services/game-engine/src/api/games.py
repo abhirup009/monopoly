@@ -7,19 +7,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_session
 from src.db.repositories import (
-    CardDeckRepository,
     GameEventRepository,
     GameRepository,
-    PlayerRepository,
-    PropertyStateRepository,
 )
 from src.engine.game_manager import (
     ActionType as EngineActionType,
+)
+from src.engine.game_manager import (
     GameManager,
-    TurnPhase as EngineTurnPhase,
 )
 from src.models.actions import (
-    Action,
     ActionRequest,
     ActionResult,
     ActionType,

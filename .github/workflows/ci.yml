@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [main, feature/*]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-game-engine:
+    name: Game Engine Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: monopoly
+          POSTGRES_PASSWORD: monopoly
+          POSTGRES_DB: monopoly
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    defaults:
+      run:
+        working-directory: services/game-engine
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run linter
+        run: ruff check src
+
+      - name: Run tests
+        env:
+          DATABASE_URL: postgresql+asyncpg://monopoly:monopoly@localhost:5432/monopoly
+        run: pytest src/tests/ -v --cov=src --cov-report=term-missing
+
+  test-ai-agent:
+    name: AI Agent Tests
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: services/ai-agent
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run linter
+        run: ruff check src
+
+      - name: Run tests
+        run: pytest src/tests/ -v --cov=src --cov-report=term-missing

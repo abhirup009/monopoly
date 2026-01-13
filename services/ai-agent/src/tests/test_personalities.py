@@ -1,6 +1,5 @@
 """Tests for personality configurations."""
 
-import pytest
 
 from src.prompts.personalities import (
     PERSONALITIES,

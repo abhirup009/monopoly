@@ -1,10 +1,11 @@
 """Pytest configuration and fixtures."""
 
-import pytest
 from uuid import uuid4
 
-from src.db.models import GameModel, PlayerModel, PropertyStateModel
+import pytest
+
 from src.data.properties import ALL_PROPERTY_IDS
+from src.db.models import GameModel, PlayerModel, PropertyStateModel
 
 
 @pytest.fixture

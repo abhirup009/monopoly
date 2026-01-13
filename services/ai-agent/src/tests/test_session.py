@@ -1,9 +1,8 @@
 """Tests for session management."""
 
-import pytest
 from uuid import uuid4
 
-from src.llm.session import AgentSession, SessionManager
+from src.llm.session import AgentSession
 
 
 class TestAgentSession:

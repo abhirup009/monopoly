@@ -1,17 +1,13 @@
 """Tests for property buying and rent calculation."""
 
-import pytest
-from uuid import uuid4
 
-from src.engine.property_rules import (
-    can_buy_property,
-    get_property_price,
-    calculate_rent,
-    owns_full_color_set,
-    get_owner_id,
-    count_houses_and_hotels,
-)
 from src.db.models import PlayerModel, PropertyStateModel
+from src.engine.property_rules import (
+    calculate_rent,
+    can_buy_property,
+    count_houses_and_hotels,
+    owns_full_color_set,
+)
 
 
 class TestCanBuyProperty:

@@ -1,15 +1,15 @@
 """Tests for house and hotel building rules."""
 
-import pytest
-from uuid import uuid4
 
-from src.engine.building_rules import (
-    can_build_house,
-    can_build_hotel,
-    get_house_cost,
-    get_buildable_properties,
-)
+import pytest
+
 from src.db.models import PlayerModel, PropertyStateModel
+from src.engine.building_rules import (
+    can_build_hotel,
+    can_build_house,
+    get_buildable_properties,
+    get_house_cost,
+)
 
 
 class TestCanBuildHouse:

@@ -8,13 +8,12 @@ from src.data.chance_cards import CHANCE_CARDS, get_chance_card
 from src.data.community_chest import COMMUNITY_CHEST_CARDS, get_community_chest_card
 from src.db.models import PlayerModel, PropertyStateModel
 from src.engine.movement import (
-    GO_POSITION,
     JAIL_POSITION,
     find_nearest_property_type,
     move_player,
     move_to_position,
 )
-from src.engine.property_rules import calculate_rent, count_houses_and_hotels
+from src.engine.property_rules import count_houses_and_hotels
 
 
 class CardType(str, Enum):

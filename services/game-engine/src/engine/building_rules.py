@@ -1,8 +1,7 @@
 """House and hotel building rules."""
 
-from uuid import UUID
 
-from src.data.properties import COLOR_GROUPS, PROPERTIES, get_property
+from src.data.properties import COLOR_GROUPS, get_property
 from src.db.models import PlayerModel, PropertyStateModel
 
 

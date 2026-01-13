@@ -1,10 +1,10 @@
 """Pytest fixtures for AI Agent Service tests."""
 
-import pytest
 from uuid import uuid4
 
+import pytest
+
 from src.client.models import (
-    Action,
     ActionType,
     GameState,
     GameStatus,

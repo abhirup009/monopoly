@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from src.data.board import BOARD_SPACES, get_space
+from src.data.board import get_space
 
 BOARD_SIZE = 40
 GO_POSITION = 0

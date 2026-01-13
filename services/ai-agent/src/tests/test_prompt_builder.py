@@ -3,7 +3,7 @@
 import pytest
 
 from src.prompts.builder import PromptBuilder
-from src.prompts.templates import get_property_name, get_space_name, get_color_group
+from src.prompts.templates import get_color_group, get_property_name, get_space_name
 
 
 class TestPromptBuilder:
