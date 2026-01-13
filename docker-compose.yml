@@ -130,6 +130,30 @@ services:
       - full
       - ai
 
+  orchestrator:
+    build:
+      context: ./services/orchestrator
+      dockerfile: Dockerfile
+    container_name: monopoly-orchestrator
+    ports:
+      - "3000:3000"
+    environment:
+      - ORCHESTRATOR_GAME_ENGINE_URL=http://game-engine:8000
+      - ORCHESTRATOR_AI_AGENT_URL=http://ai-agent:8001
+      - ORCHESTRATOR_REDIS_URL=redis://redis:6379
+      - ORCHESTRATOR_TURN_TIMEOUT=30.0
+      - ORCHESTRATOR_DEFAULT_SPEED=normal
+    depends_on:
+      - game-engine
+      - ai-agent
+      - redis
+    volumes:
+      - ./services/orchestrator/src:/app/src:ro
+    networks:
+      - monopoly-network
+    profiles:
+      - full
+
 networks:
   monopoly-network:
     driver: bridge
