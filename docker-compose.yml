@@ -56,7 +56,31 @@ services:
       - monopoly-network
 
   # ===================
-  # SERVICES (will be added as we build them)
+  # LLM (Ollama)
+  # ===================
+  ollama:
+    image: ollama/ollama:latest
+    container_name: monopoly-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    # Uncomment below for GPU support (NVIDIA)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+    networks:
+      - monopoly-network
+    profiles:
+      - full
+      - ai
+
+  # ===================
+  # SERVICES
   # ===================
   game-engine:
     build:
@@ -79,7 +103,32 @@ services:
     networks:
       - monopoly-network
     profiles:
-      - full  # Only start with --profile full
+      - full
+
+  ai-agent:
+    build:
+      context: ./services/ai-agent
+      dockerfile: Dockerfile
+    container_name: monopoly-ai-agent
+    ports:
+      - "8001:8001"
+    environment:
+      - GAME_ENGINE_URL=http://game-engine:8000
+      - OLLAMA_HOST=http://ollama:11434
+      - OLLAMA_MODEL=llama3
+      - TURN_DELAY=1.0
+      - ACTION_DELAY=0.5
+      - LOG_LEVEL=INFO
+    depends_on:
+      - game-engine
+      - ollama
+    volumes:
+      - ./services/ai-agent/src:/app/src:ro
+    networks:
+      - monopoly-network
+    profiles:
+      - full
+      - ai
 
 networks:
   monopoly-network:
@@ -88,3 +137,4 @@ networks:
 volumes:
   postgres_data:
   redis_data:
+  ollama_data:
