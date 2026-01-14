@@ -132,14 +132,18 @@ async def create_game(request: CreateGameRequest) -> dict[str, Any]:
         await _game_engine.start_game(game_id)
         logger.info(f"Started game {game_id} in Game Engine")
 
+        # Get full game state with player IDs
+        game_state = await _game_engine.get_state(game_id)
+        game_players = game_state.get("players", [])
+
         # Register with AI Agent service
         agents_config = [
             {
                 "player_id": str(p["id"]),
                 "name": p["name"],
-                "personality": p["personality"],
+                "personality": p.get("personality", request.agents[i].personality),
             }
-            for p in game_data["players"]
+            for i, p in enumerate(game_players)
         ]
         await _ai_agent.create_game(game_id, agents_config)
         logger.info(f"Registered game {game_id} with AI Agent service")

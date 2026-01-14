@@ -68,6 +68,139 @@ class HealthResponse(BaseModel):
     game_engine: str
 
 
+class DecideRequest(BaseModel):
+    """Request for AI decision on a turn."""
+
+    player_id: str
+    game_state: dict
+    valid_actions: list[dict]
+
+
+class DecideResponse(BaseModel):
+    """Response with AI decision."""
+
+    action: dict
+    reasoning: str | None = None
+
+
+# Store for orchestrator-managed agent sessions
+orchestrator_sessions: dict[str, dict[str, Any]] = {}
+
+
+@router.post("/games/{game_id}/decide", response_model=DecideResponse)
+async def decide_action(game_id: UUID, request: DecideRequest) -> DecideResponse:
+    """Make a decision for a player in an orchestrator-managed game.
+
+    This endpoint is called by the Orchestrator to get AI decisions turn by turn.
+    """
+    from src.agent.monopoly_agent import MonopolyAgent
+    from src.client.models import Action, GameState, ValidActions
+    from src.llm.session import AgentSession
+
+    session_key = f"{game_id}:{request.player_id}"
+
+    # Get or create agent session for this player
+    if session_key not in orchestrator_sessions:
+        # Find player info from game state
+        player_info = None
+        for p in request.game_state.get("players", []):
+            if str(p.get("id")) == request.player_id:
+                player_info = p
+                break
+
+        if not player_info:
+            raise HTTPException(status_code=400, detail="Player not found in game state")
+
+        # Get personality config for temperature
+        from src.prompts.personalities import get_personality
+        personality_name = player_info.get("personality", "analytical")
+        personality_config = get_personality(personality_name)
+
+        # Create session for this agent
+        orchestrator_sessions[session_key] = {
+            "session": AgentSession(
+                agent_id=UUID(request.player_id),
+                personality=personality_name,
+                temperature=personality_config.temperature,
+            ),
+            "player_name": player_info.get("name", "Unknown"),
+            "personality": personality_name,
+        }
+
+    agent_info = orchestrator_sessions[session_key]
+
+    # Get personality config for temperature
+    from src.prompts.personalities import get_personality
+    personality_config = get_personality(agent_info["personality"])
+
+    # Create Ollama client
+    ollama_client = OllamaClient(
+        model=settings.ollama_model,
+        host=settings.ollama_host,
+    )
+
+    # Check availability
+    if not await ollama_client.is_available():
+        raise HTTPException(
+            status_code=503,
+            detail=f"Ollama not available or model '{settings.ollama_model}' not found",
+        )
+
+    # Create temporary agent for decision
+    agent = MonopolyAgent(
+        player_id=UUID(request.player_id),
+        player_name=agent_info["player_name"],
+        personality=agent_info["personality"],
+        ollama_client=ollama_client,
+        session=agent_info["session"],
+    )
+
+    try:
+        # Parse game state and valid actions
+        from src.client.models import ValidAction
+        game_state = GameState(**request.game_state)
+
+        # Find current player
+        current_idx = request.game_state.get("current_player_index", 0)
+        players = request.game_state.get("players", [])
+        player_id_str = players[current_idx]["id"] if players else request.player_id
+        turn_phase = request.game_state.get("turn_phase", "pre_roll")
+
+        valid_actions = ValidActions(
+            player_id=UUID(player_id_str),
+            turn_phase=turn_phase,
+            actions=[
+                ValidAction(
+                    type=a.get("type"),
+                    property_id=a.get("property_id"),
+                    cost=a.get("cost"),
+                )
+                for a in request.valid_actions
+            ]
+        )
+
+        # Get decision
+        action = await agent.decide_action(game_state, valid_actions)
+
+        return DecideResponse(
+            action={
+                "type": action.type.value,
+                "property_id": action.property_id,
+            },
+            reasoning=None,
+        )
+
+    except Exception as e:
+        logger.error(f"Decision error for {session_key}: {e}")
+        # Return first valid action as fallback
+        if request.valid_actions:
+            return DecideResponse(
+                action=request.valid_actions[0],
+                reasoning="Error occurred, using default action",
+            )
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/games", response_model=GameStatusResponse)
 async def create_game(
     request: CreateGameRequest,
