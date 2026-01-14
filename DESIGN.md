@@ -117,47 +117,54 @@ GET    /game/{id}/valid-actions  - Get valid actions for current player
 
 ---
 
-### 3.2 Orchestration Service (Node.js/TypeScript)
+### 3.2 Orchestration Service (Python)
 
 **Purpose:** Central coordinator between all services and frontend.
 
 **Technology:**
-- Node.js 20+
-- TypeScript
-- Socket.IO for real-time communication
-- Express.js for REST endpoints
-- Bull/BullMQ for job queues
+- Python 3.11+
+- FastAPI for REST API
+- python-socketio for real-time WebSocket communication
+- httpx for async HTTP client
+- asyncio for coordination and timeouts
 
 **Responsibilities:**
 - Manage game loop and turn order
 - Coordinate AI agent decision requests
-- Route chat messages
-- Broadcast state updates to frontend
-- Handle timing and timeouts
+- Broadcast state updates to frontend via Socket.IO
+- Handle turn timeouts (30s default)
+- Configurable game speed (Fast/Normal/Slow)
 
 **Key Components:**
 
-```typescript
-// Game Loop Controller
-class GameLoopController {
-  async executeTurn(playerId: string) {
-    // 1. Get valid actions from Game Engine
-    // 2. Request decision from AI Agent
-    // 3. Validate and execute action
-    // 4. Allow post-action decisions (buy, trade, chat)
-    // 5. Trigger chat opportunities
-    // 6. Advance to next player
-  }
-}
+```python
+class GameLoopController:
+    async def execute_turn(self, game_id: UUID, state: GameState):
+        player = state.players[state.current_player_index]
 
-// Turn Phases
-enum TurnPhase {
-  PRE_ROLL,        // Agent reviews state before rolling
-  ROLL_DICE,       // Dice roll
-  LAND_ACTION,     // Handle landing (buy, pay rent, draw card)
-  POST_ROLL,       // Agent can build houses/hotels
-  CHAT_OPPORTUNITY // Agent generates trash talk
-}
+        # Get AI decision with timeout
+        try:
+            action = await asyncio.wait_for(
+                self.ai_agent.get_decision(game_id, player.id),
+                timeout=self.turn_timeout,  # 30s
+            )
+        except asyncio.TimeoutError:
+            action = self._get_default_action(state.turn_phase)
+
+        # Execute action via Game Engine
+        result = await self.game_engine.execute_action(game_id, player.id, action)
+
+        # Broadcast to spectators
+        await self.event_bus.emit("turn:action", {
+            "player_id": player.id,
+            "action": action,
+            "result": result,
+        })
+
+class GameSpeed(str, Enum):
+    FAST = "fast"      # 0.5s delay
+    NORMAL = "normal"  # 2.0s delay
+    SLOW = "slow"      # 5.0s delay
 ```
 
 ---
@@ -529,10 +536,10 @@ interface ServerEvents {
 | Layer | Technology | Purpose |
 |-------|------------|---------|
 | **Frontend** | React, TypeScript, Vite, TailwindCSS, Socket.IO Client | UI and real-time updates |
-| **Orchestrator** | Node.js, TypeScript, Express, Socket.IO, BullMQ | Game coordination |
-| **Game Engine** | Python, FastAPI, Pydantic | Game rules and state |
-| **AI Agents** | Python, LangChain, OpenAI/Anthropic/Ollama | LLM integration |
-| **Chat** | Node.js, Redis Pub/Sub | Messaging |
+| **Orchestrator** | Python, FastAPI, python-socketio, asyncio | Game coordination |
+| **Game Engine** | Python, FastAPI, Pydantic, SQLAlchemy | Game rules and state |
+| **AI Agents** | Python, FastAPI, Ollama, httpx | LLM integration |
+| **Chat** | Python, Redis Pub/Sub | Messaging |
 | **Database** | Redis (pub/sub, caching), PostgreSQL (persistence) | Data storage |
 | **Container** | Docker, Docker Compose | Deployment |
 
@@ -540,29 +547,29 @@ interface ServerEvents {
 
 ## 8. Development Phases
 
-### Phase 1: Core Game Engine (v1)
-- [ ] Fork and extend MonopolySimulator
-- [ ] Implement property buying (buy or pass)
-- [ ] Add house/hotel building logic
-- [ ] Implement jail mechanics
-- [ ] Implement rent collection
-- [ ] Create FastAPI REST interface
-- [ ] Set up PostgreSQL with game state schema
-- [ ] Write comprehensive tests
+### Phase 1: Core Game Engine (v1) ✅ COMPLETE
+- [x] Build custom Python engine (FastAPI + SQLAlchemy)
+- [x] Implement property buying (buy or pass)
+- [x] Add house/hotel building logic
+- [x] Implement jail mechanics
+- [x] Implement rent collection
+- [x] Create FastAPI REST interface
+- [x] Set up PostgreSQL with game state schema
+- [x] Write comprehensive tests
 
-### Phase 2: Orchestration Layer
-- [ ] Set up Node.js/TypeScript project
+### Phase 2: Orchestration Layer 🔄 IN PROGRESS
+- [ ] Set up Python/FastAPI project
 - [ ] Implement game loop controller with 30s timeout
-- [ ] Create WebSocket server with Socket.IO
-- [ ] Build inter-service communication
+- [ ] Create WebSocket server with python-socketio
+- [ ] Build inter-service communication (httpx)
 - [ ] Add configurable game speed (Fast/Normal/Slow)
 
-### Phase 3: AI Agent System
-- [ ] Design agent prompt templates
-- [ ] Implement multi-provider LLM support
-- [ ] Create agent memory system
-- [ ] Build decision-making pipeline
-- [ ] Add personality configurations
+### Phase 3: AI Agent System ✅ COMPLETE
+- [x] Design agent prompt templates
+- [x] Implement Ollama LLM support (local models)
+- [x] Create session-based memory system
+- [x] Build decision-making pipeline with action parsing
+- [x] Add personality configurations (aggressive, analytical, chaotic)
 
 ### Phase 4: Chat System
 - [ ] Set up Redis Pub/Sub
@@ -580,7 +587,8 @@ interface ServerEvents {
 - [ ] Add animations and polish
 
 ### Phase 6: Integration & Testing
-- [ ] End-to-end testing
+- [x] Game Engine + AI Agent integration tested
+- [ ] Full stack end-to-end testing
 - [ ] Performance optimization
 - [ ] Bug fixes and edge cases
 
@@ -592,6 +600,7 @@ interface ServerEvents {
 - [ ] Mortgage/unmortgage logic
 - [ ] Game persistence (save/resume)
 - [ ] Multiple concurrent games
+- [ ] Multi-provider LLM support (OpenAI, Anthropic)
 
 ---
 
@@ -600,53 +609,54 @@ interface ServerEvents {
 ```
 monopoly/
 ├── apps/
-│   ├── frontend/           # React frontend
-│   │   ├── src/
-│   │   │   ├── components/
-│   │   │   ├── hooks/
-│   │   │   ├── stores/
-│   │   │   └── types/
-│   │   └── package.json
-│   │
-│   ├── orchestrator/       # Node.js orchestration service
-│   │   ├── src/
-│   │   │   ├── controllers/
-│   │   │   ├── services/
-│   │   │   ├── events/
-│   │   │   └── types/
-│   │   └── package.json
-│   │
-│   └── chat-service/       # Node.js chat service
+│   └── frontend/              # React frontend
 │       ├── src/
+│       │   ├── components/
+│       │   ├── hooks/
+│       │   └── stores/
 │       └── package.json
 │
 ├── services/
-│   ├── game-engine/        # Python game engine
+│   ├── game-engine/           # Python game engine ✅
 │   │   ├── src/
-│   │   │   ├── models/
-│   │   │   ├── rules/
-│   │   │   ├── api/
+│   │   │   ├── api/           # REST endpoints
+│   │   │   ├── engine/        # Game logic
+│   │   │   ├── db/            # Database models
+│   │   │   ├── models/        # Pydantic schemas
+│   │   │   ├── data/          # Board, cards, properties
 │   │   │   └── tests/
 │   │   ├── pyproject.toml
 │   │   └── Dockerfile
 │   │
-│   └── ai-agents/          # Python AI agent service
+│   ├── ai-agent/              # Python AI agent service ✅
+│   │   ├── src/
+│   │   │   ├── api/           # REST endpoints
+│   │   │   ├── agent/         # Agent orchestration
+│   │   │   ├── client/        # Game Engine client
+│   │   │   ├── llm/           # Ollama wrapper
+│   │   │   ├── parser/        # Action parsing
+│   │   │   ├── prompts/       # Personality prompts
+│   │   │   └── tests/
+│   │   ├── pyproject.toml
+│   │   └── Dockerfile
+│   │
+│   └── orchestrator/          # Python orchestration service
 │       ├── src/
-│       │   ├── agents/
-│       │   ├── prompts/
-│       │   ├── memory/
-│       │   └── providers/
+│       │   ├── api/           # REST endpoints
+│       │   ├── game/          # Game loop controller
+│       │   ├── clients/       # Service clients
+│       │   ├── ws/            # Socket.IO server
+│       │   └── tests/
 │       ├── pyproject.toml
 │       └── Dockerfile
 │
-├── packages/
-│   └── shared-types/       # Shared TypeScript types
-│       ├── src/
-│       └── package.json
+├── infrastructure/
+│   └── init-db/               # Database init scripts
 │
+├── docs/                      # Documentation
+├── plans/                     # Implementation plans
 ├── docker-compose.yml
-├── turbo.json              # Turborepo config
-└── package.json            # Root package.json
+└── DESIGN.md
 ```
 
 ---
