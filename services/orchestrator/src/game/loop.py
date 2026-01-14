@@ -13,6 +13,14 @@ from src.ws.events import EventBus
 logger = logging.getLogger(__name__)
 
 
+# Action types that indicate turn continuation vs turn end
+TURN_ENDING_ACTIONS = {"end_turn"}
+DICE_ACTIONS = {"roll_dice", "roll_for_doubles"}
+PROPERTY_ACTIONS = {"buy_property", "pass_property"}
+BUILDING_ACTIONS = {"build_house", "build_hotel"}
+JAIL_ACTIONS = {"pay_jail_fine", "use_jail_card"}
+
+
 class GameLoopController:
     """Controls the game loop execution."""
 
@@ -120,18 +128,22 @@ class GameLoopController:
         player = players[current_index]
         player_id = UUID(player["id"])
         turn_number = state.get("turn_number", 0)
+        turn_phase = state.get("turn_phase", "pre_roll")
 
-        # Emit turn start
-        await self.event_bus.emit(
-            "turn:start",
-            {
-                "game_id": str(game_id),
-                "player_id": str(player_id),
-                "player_name": player.get("name"),
-                "turn_number": turn_number,
-            },
-            game_id=game_id,
-        )
+        # Emit turn start (only on pre_roll phase to avoid duplicate events)
+        if turn_phase == "pre_roll":
+            await self.event_bus.emit(
+                "turn:start",
+                {
+                    "game_id": str(game_id),
+                    "player_id": str(player_id),
+                    "player_name": player.get("name"),
+                    "turn_number": turn_number,
+                    "position": player.get("position", 0),
+                    "cash": player.get("cash", 0),
+                },
+                game_id=game_id,
+            )
 
         # Get valid actions
         valid_actions_response = await self.game_engine.get_valid_actions(game_id)
@@ -141,14 +153,21 @@ class GameLoopController:
             logger.warning(f"No valid actions for player {player_id} in game {game_id}")
             return
 
-        # Emit thinking event
+        # Emit thinking event with phase context
         await self.event_bus.emit(
             "agent:thinking",
-            {"game_id": str(game_id), "player_id": str(player_id)},
+            {
+                "game_id": str(game_id),
+                "player_id": str(player_id),
+                "player_name": player.get("name"),
+                "phase": turn_phase,
+                "valid_actions": [a.get("type") for a in valid_actions],
+            },
             game_id=game_id,
         )
 
         # Get AI decision with timeout
+        reasoning = None
         try:
             decision = await asyncio.wait_for(
                 self.ai_agent.get_decision(
@@ -160,6 +179,7 @@ class GameLoopController:
                 timeout=self.turn_timeout,
             )
             action = decision.get("action", valid_actions[0])
+            reasoning = decision.get("reasoning")
         except asyncio.TimeoutError:
             logger.warning(f"AI timeout for player {player_id}, using default action")
             action = self._get_default_action(valid_actions)
@@ -169,10 +189,26 @@ class GameLoopController:
                 game_id=game_id,
             )
 
+        # Emit agent decision event (before action execution)
+        await self.event_bus.emit(
+            "agent:decision",
+            {
+                "game_id": str(game_id),
+                "player_id": str(player_id),
+                "player_name": player.get("name"),
+                "action": action,
+                "reasoning": reasoning,
+            },
+            game_id=game_id,
+        )
+
         # Execute the action
         result = await self.game_engine.execute_action(game_id, player_id, action)
 
-        # Emit action result
+        # Emit rich events based on action type
+        await self._emit_action_events(session, player, action, result)
+
+        # Emit general action result
         await self.event_bus.emit(
             "turn:action",
             {
@@ -184,6 +220,174 @@ class GameLoopController:
             },
             game_id=game_id,
         )
+
+        # Get updated state and broadcast
+        updated_state = await self.game_engine.get_state(game_id)
+        session.update_state(updated_state)
+
+        await self.event_bus.emit(
+            "game:state",
+            {
+                "game_id": str(game_id),
+                "state": updated_state,
+            },
+            game_id=game_id,
+        )
+
+        # Emit turn:end if this was a turn-ending action
+        action_type = action.get("type", "")
+        if action_type in TURN_ENDING_ACTIONS:
+            await self.event_bus.emit(
+                "turn:end",
+                {
+                    "game_id": str(game_id),
+                    "player_id": str(player_id),
+                    "player_name": player.get("name"),
+                    "turn_number": turn_number,
+                },
+                game_id=game_id,
+            )
+
+    async def _emit_action_events(
+        self,
+        session: GameSession,
+        player: dict[str, Any],
+        action: dict[str, Any],
+        result: dict[str, Any],
+    ) -> None:
+        """Emit rich events based on action type for frontend animations.
+
+        Args:
+            session: The game session.
+            player: Current player data.
+            action: The action that was executed.
+            result: The action result.
+        """
+        game_id = session.game_id
+        action_type = action.get("type", "")
+
+        # Dice roll events
+        if action_type in DICE_ACTIONS and result.get("dice_roll"):
+            dice = result["dice_roll"]
+            await self.event_bus.emit(
+                "dice:rolled",
+                {
+                    "game_id": str(game_id),
+                    "player_id": player["id"],
+                    "player_name": player.get("name"),
+                    "dice": dice,
+                    "total": sum(dice),
+                    "is_doubles": dice[0] == dice[1] if len(dice) == 2 else False,
+                },
+                game_id=game_id,
+            )
+
+            # Player movement event
+            if result.get("new_position") is not None:
+                await self.event_bus.emit(
+                    "player:moved",
+                    {
+                        "game_id": str(game_id),
+                        "player_id": player["id"],
+                        "player_name": player.get("name"),
+                        "from_position": player.get("position", 0),
+                        "to_position": result["new_position"],
+                        "dice_total": sum(dice),
+                    },
+                    game_id=game_id,
+                )
+
+        # Property purchase event
+        if action_type == "buy_property" and result.get("success"):
+            await self.event_bus.emit(
+                "property:purchased",
+                {
+                    "game_id": str(game_id),
+                    "player_id": player["id"],
+                    "player_name": player.get("name"),
+                    "property_id": action.get("property_id"),
+                    "price": result.get("amount_paid"),
+                },
+                game_id=game_id,
+            )
+
+        # Property passed event
+        if action_type == "pass_property":
+            await self.event_bus.emit(
+                "property:passed",
+                {
+                    "game_id": str(game_id),
+                    "player_id": player["id"],
+                    "player_name": player.get("name"),
+                    "property_id": action.get("property_id"),
+                },
+                game_id=game_id,
+            )
+
+        # Rent paid event
+        if result.get("amount_paid") and action_type not in PROPERTY_ACTIONS:
+            await self.event_bus.emit(
+                "rent:paid",
+                {
+                    "game_id": str(game_id),
+                    "player_id": player["id"],
+                    "player_name": player.get("name"),
+                    "amount": result["amount_paid"],
+                },
+                game_id=game_id,
+            )
+
+        # Card drawn event
+        if result.get("card_drawn"):
+            await self.event_bus.emit(
+                "card:drawn",
+                {
+                    "game_id": str(game_id),
+                    "player_id": player["id"],
+                    "player_name": player.get("name"),
+                    "card_text": result["card_drawn"],
+                },
+                game_id=game_id,
+            )
+
+        # Building event
+        if action_type in BUILDING_ACTIONS and result.get("success"):
+            await self.event_bus.emit(
+                "building:built",
+                {
+                    "game_id": str(game_id),
+                    "player_id": player["id"],
+                    "player_name": player.get("name"),
+                    "property_id": action.get("property_id"),
+                    "building_type": "hotel" if action_type == "build_hotel" else "house",
+                },
+                game_id=game_id,
+            )
+
+        # Jail events
+        if action_type in JAIL_ACTIONS:
+            await self.event_bus.emit(
+                "jail:action",
+                {
+                    "game_id": str(game_id),
+                    "player_id": player["id"],
+                    "player_name": player.get("name"),
+                    "action_type": action_type,
+                    "success": result.get("success", False),
+                },
+                game_id=game_id,
+            )
+
+        # Game over / bankruptcy check
+        if result.get("game_over"):
+            await self.event_bus.emit(
+                "game:over",
+                {
+                    "game_id": str(game_id),
+                    "winner_id": result.get("winner_id"),
+                },
+                game_id=game_id,
+            )
 
     async def _handle_game_end(self, session: GameSession, state: dict[str, Any]) -> None:
         """Handle game completion.
