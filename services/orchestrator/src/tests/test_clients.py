@@ -58,7 +58,7 @@ class TestGameEngineClient:
 
             assert result["id"] == "test-uuid"
             mock_http.post.assert_called_once_with(
-                "/game/create", json={"players": players}
+                "/game", json={"players": players}
             )
 
     @pytest.mark.asyncio
