@@ -94,7 +94,7 @@ async def decide_action(game_id: UUID, request: DecideRequest) -> DecideResponse
     This endpoint is called by the Orchestrator to get AI decisions turn by turn.
     """
     from src.agent.monopoly_agent import MonopolyAgent
-    from src.client.models import Action, GameState, ValidActions
+    from src.client.models import GameState, ValidActions
     from src.llm.session import AgentSession
 
     session_key = f"{game_id}:{request.player_id}"
