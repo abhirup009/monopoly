@@ -90,7 +90,8 @@ async def get_game(
             detail=f"Game {game_id} not found",
         )
 
-    # Convert to response model
+    # Convert to response model - sort by player_order for consistency
+    sorted_players = sorted(game.players, key=lambda p: p.player_order)
     players = [
         Player(
             id=p.id,
@@ -107,7 +108,7 @@ async def get_game(
             is_bankrupt=p.is_bankrupt,
             created_at=p.created_at,
         )
-        for p in game.players
+        for p in sorted_players
     ]
 
     properties = [

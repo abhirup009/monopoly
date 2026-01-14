@@ -58,7 +58,7 @@ class GameEngineClient:
             Created game data including game_id.
         """
         client = await self._get_client()
-        response = await client.post("/game/create", json={"players": players})
+        response = await client.post("/game", json={"players": players})
         response.raise_for_status()
         return response.json()
 
@@ -100,7 +100,7 @@ class GameEngineClient:
             Valid actions data.
         """
         client = await self._get_client()
-        response = await client.get(f"/game/{game_id}/valid-actions")
+        response = await client.get(f"/game/{game_id}/actions")
         response.raise_for_status()
         return response.json()
 
