@@ -404,6 +404,16 @@ h3 {
   cursor: not-allowed;
 }
 
+.control-actions button.stop-btn {
+  background: rgba(255, 122, 122, 0.15);
+  border-color: rgba(255, 122, 122, 0.3);
+  color: var(--danger);
+}
+
+.control-actions button.stop-btn:hover:not(:disabled) {
+  background: rgba(255, 122, 122, 0.25);
+}
+
 .control-meta {
   margin-top: 12px;
   font-size: 0.72rem;

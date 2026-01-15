@@ -295,6 +295,27 @@ export default function App() {
     });
   };
 
+  const handleStopGame = async () => {
+    if (!gameId) {
+      pushLog("No active game to stop.", "warn");
+      return;
+    }
+    try {
+      const response = await fetch(`${apiBaseUrl}/games/${gameId}/stop`, {
+        method: "POST"
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || "Failed to stop game.");
+      }
+      pushLog(`Game ${gameId} stopped.`, "warn");
+      setLastDice(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      pushLog(`Stop game failed: ${message}`, "error");
+    }
+  };
+
   return (
     <div className="app">
       <div className="ambient" />
@@ -448,6 +469,14 @@ export default function App() {
                 </button>
                 <button type="button" onClick={handleCreateGame} disabled={isCreating}>
                   {isCreating ? "Creating..." : "Start new game"}
+                </button>
+                <button
+                  type="button"
+                  className="stop-btn"
+                  onClick={handleStopGame}
+                  disabled={!gameId || gameState?.status === "completed"}
+                >
+                  Stop game
                 </button>
               </div>
               <div className="control-meta">
