@@ -274,6 +274,14 @@ h3 {
   font-weight: 600;
 }
 
+.money-from,
+.money-to {
+  padding: 2px 6px;
+  border-radius: 999px;
+  color: #0a0d12;
+  font-weight: 700;
+}
+
 .money-arrow {
   color: var(--accent-2);
 }
@@ -529,6 +537,17 @@ h3 {
   font-size: 0.85rem;
 }
 
+.active-indicator {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--good);
+  border: 1px solid rgba(90, 228, 168, 0.4);
+  border-radius: 999px;
+  padding: 4px 8px;
+  width: fit-content;
+}
+
 .tag {
   padding: 4px 8px;
   border-radius: 999px;
@@ -558,6 +577,7 @@ h3 {
   margin-top: 10px;
   display: grid;
   gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 }
 
 .property-mini-card {
@@ -617,6 +637,15 @@ h3 {
   text-transform: uppercase;
   letter-spacing: 0.2em;
   color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.owner-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
 }
 
 .property-card {

@@ -60,6 +60,8 @@ type MoneyFlow = {
   to: string;
   amount: number;
   context: string;
+  fromColor: string;
+  toColor: string;
 };
 
 export default function App() {
@@ -137,6 +139,12 @@ export default function App() {
       setMoneyFlow((prev) => (prev?.id === id ? null : prev));
     }, 2400);
   };
+
+  const getPlayerById = (playerId: string) =>
+    sortedPlayers.find((player) => player.id === playerId);
+
+  const getPositionName = (position: number) =>
+    BOARD_SPACES.find((space) => space.position === position)?.name || `Space ${position}`;
 
   const pushLog = (message: string, tone: LogEntry["tone"] = "info") => {
     setLogs((prev) => {
@@ -328,19 +336,52 @@ export default function App() {
       } else if (payload?.action?.type) {
         pushLog(`${payload.player_name} executed ${payload.action.type}.`);
       }
-      if (payload?.result?.amount_paid) {
+
+      const actionType = payload.action?.type;
+      const player = getPlayerById(payload.player_id);
+      const playerColor = player ? playerColorMap.get(player.id) || "#9aa3b2" : "#9aa3b2";
+      const bankColor = "#5ae4a8";
+
+      if (actionType === "buy_property" && payload.action?.property_id) {
+        const price = PROPERTY_DETAILS[payload.action.property_id]?.price;
+        if (price) {
+          announceMoneyFlow({
+            from: payload.player_name,
+            to: "Bank",
+            amount: price,
+            context: "purchase",
+            fromColor: playerColor,
+            toColor: bankColor
+          });
+        }
+      }
+
+      if (payload?.result?.amount_paid && actionType !== "buy_property") {
+        let toLabel = "Bank";
+        let toColor = bankColor;
+
+        if (payload.result.new_position !== undefined) {
+          const space = BOARD_SPACES.find(
+            (candidate) => candidate.position === payload.result.new_position
+          );
+          const propertyId = space?.property_id;
+          const ownerId = propertyId
+            ? propertyStateById.get(propertyId)?.owner_id
+            : null;
+          const owner = ownerId ? getPlayerById(ownerId) : null;
+          if (owner && owner.id !== payload.player_id) {
+            toLabel = owner.name;
+            toColor = playerColorMap.get(owner.id) || bankColor;
+          }
+        }
+
         announceMoneyFlow({
           from: payload.player_name,
-          to: payload.action?.type === "pay_jail_fine" ? "Bank" : "Owner",
+          to: toLabel,
           amount: payload.result.amount_paid,
-          context: payload.action?.type || "payment"
-        });
-      } else if (payload?.result?.amount_received) {
-        announceMoneyFlow({
-          from: "Bank",
-          to: payload.player_name,
-          amount: payload.result.amount_received,
-          context: payload.action?.type || "payout"
+          context: actionType || "payment",
+          fromColor: playerColor,
+          toColor
         });
       }
     });
@@ -384,12 +425,6 @@ export default function App() {
 
     socket.on("rent:paid", (payload: { player_name: string; amount: number }) => {
       pushLog(`${payload.player_name} paid rent of $${payload.amount}.`);
-      announceMoneyFlow({
-        from: payload.player_name,
-        to: "Owner",
-        amount: payload.amount,
-        context: "rent"
-      });
     });
 
     socket.on("card:drawn", (payload: { player_name: string; card_text: string }) => {
@@ -629,9 +664,19 @@ export default function App() {
                 {moneyFlow ? (
                   <div className="money-flow">
                     <div className="money-row">
-                      <span className="money-from">{moneyFlow.from}</span>
+                      <span
+                        className="money-from"
+                        style={{ background: moneyFlow.fromColor }}
+                      >
+                        {moneyFlow.from}
+                      </span>
                       <span className="money-arrow">→</span>
-                      <span className="money-to">{moneyFlow.to}</span>
+                      <span
+                        className="money-to"
+                        style={{ background: moneyFlow.toColor }}
+                      >
+                        {moneyFlow.to}
+                      </span>
                     </div>
                     <div className="money-amount">${moneyFlow.amount}</div>
                     <div className="money-context">{moneyFlow.context}</div>
@@ -724,12 +769,15 @@ export default function App() {
                   </header>
                   <div className="player-meta">
                     <span>{player.model}</span>
-                    <span>Pos {player.position}</span>
+                    <span>{getPositionName(player.position)}</span>
                   </div>
                   <div className="player-stats">
                     <span>Cash: ${player.cash.toLocaleString()}</span>
                     <span>Props: {propertyCountByOwner.get(player.id) || 0}</span>
                   </div>
+                  {gameState?.current_player_index === index ? (
+                    <div className="active-indicator">Active turn</div>
+                  ) : null}
                   <details className="property-details">
                     <summary>
                       Properties ({propertyCountByOwner.get(player.id) || 0})
@@ -801,16 +849,27 @@ export default function App() {
             const ownerName = ownerId
               ? sortedPlayers.find((player) => player.id === ownerId)?.name
               : "Unowned";
+            const ownerColor = ownerId ? playerColorMap.get(ownerId) : undefined;
             const bandColor = space.property_id
               ? PROPERTY_COLOR_BY_ID[space.property_id] || ""
               : "";
             return (
-              <div key={space.position} className="property-card-wrap">
+              <div
+                key={space.position}
+                className="property-card-wrap"
+                style={ownerColor ? { borderColor: ownerColor } : undefined}
+              >
                 <div
                   className="property-card-band"
                   style={{ background: bandColor || "#2a3444" }}
                 />
-                <div className="property-owner">Owner: {ownerName}</div>
+                <div className="property-owner">
+                  <span
+                    className="owner-dot"
+                    style={{ background: ownerColor || "#3a4456" }}
+                  />
+                  Owner: {ownerName}
+                </div>
                 {space.property_id ? renderPropertyCard(space.property_id) : null}
               </div>
             );
