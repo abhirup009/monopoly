@@ -50,6 +50,8 @@ export type TurnActionEvent = {
     message: string;
     dice_roll?: number[];
     new_position?: number;
+    amount_paid?: number;
+    amount_received?: number;
   };
 };
 

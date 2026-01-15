@@ -103,6 +103,228 @@ export const PROPERTY_NAME_BY_ID: Record<string, string> = BOARD_SPACES.reduce(
   {} as Record<string, string>
 );
 
+export type PropertyDetail = {
+  type: "street" | "railroad" | "utility";
+  color?: string;
+  price: number;
+  mortgage: number;
+  rent?: number[];
+  houseCost?: number;
+};
+
+export const PROPERTY_DETAILS: Record<string, PropertyDetail> = {
+  mediterranean: {
+    type: "street",
+    color: "brown",
+    price: 60,
+    mortgage: 30,
+    rent: [2, 10, 30, 90, 160, 250],
+    houseCost: 50
+  },
+  baltic: {
+    type: "street",
+    color: "brown",
+    price: 60,
+    mortgage: 30,
+    rent: [4, 20, 60, 180, 320, 450],
+    houseCost: 50
+  },
+  oriental: {
+    type: "street",
+    color: "light_blue",
+    price: 100,
+    mortgage: 50,
+    rent: [6, 30, 90, 270, 400, 550],
+    houseCost: 50
+  },
+  vermont: {
+    type: "street",
+    color: "light_blue",
+    price: 100,
+    mortgage: 50,
+    rent: [6, 30, 90, 270, 400, 550],
+    houseCost: 50
+  },
+  connecticut: {
+    type: "street",
+    color: "light_blue",
+    price: 120,
+    mortgage: 60,
+    rent: [8, 40, 100, 300, 450, 600],
+    houseCost: 50
+  },
+  st_charles: {
+    type: "street",
+    color: "pink",
+    price: 140,
+    mortgage: 70,
+    rent: [10, 50, 150, 450, 625, 750],
+    houseCost: 100
+  },
+  states: {
+    type: "street",
+    color: "pink",
+    price: 140,
+    mortgage: 70,
+    rent: [10, 50, 150, 450, 625, 750],
+    houseCost: 100
+  },
+  virginia: {
+    type: "street",
+    color: "pink",
+    price: 160,
+    mortgage: 80,
+    rent: [12, 60, 180, 500, 700, 900],
+    houseCost: 100
+  },
+  st_james: {
+    type: "street",
+    color: "orange",
+    price: 180,
+    mortgage: 90,
+    rent: [14, 70, 200, 550, 750, 950],
+    houseCost: 100
+  },
+  tennessee: {
+    type: "street",
+    color: "orange",
+    price: 180,
+    mortgage: 90,
+    rent: [14, 70, 200, 550, 750, 950],
+    houseCost: 100
+  },
+  new_york: {
+    type: "street",
+    color: "orange",
+    price: 200,
+    mortgage: 100,
+    rent: [16, 80, 220, 600, 800, 1000],
+    houseCost: 100
+  },
+  kentucky: {
+    type: "street",
+    color: "red",
+    price: 220,
+    mortgage: 110,
+    rent: [18, 90, 250, 700, 875, 1050],
+    houseCost: 150
+  },
+  indiana: {
+    type: "street",
+    color: "red",
+    price: 220,
+    mortgage: 110,
+    rent: [18, 90, 250, 700, 875, 1050],
+    houseCost: 150
+  },
+  illinois: {
+    type: "street",
+    color: "red",
+    price: 240,
+    mortgage: 120,
+    rent: [20, 100, 300, 750, 925, 1100],
+    houseCost: 150
+  },
+  atlantic: {
+    type: "street",
+    color: "yellow",
+    price: 260,
+    mortgage: 130,
+    rent: [22, 110, 330, 800, 975, 1150],
+    houseCost: 150
+  },
+  ventnor: {
+    type: "street",
+    color: "yellow",
+    price: 260,
+    mortgage: 130,
+    rent: [22, 110, 330, 800, 975, 1150],
+    houseCost: 150
+  },
+  marvin_gardens: {
+    type: "street",
+    color: "yellow",
+    price: 280,
+    mortgage: 140,
+    rent: [24, 120, 360, 850, 1025, 1200],
+    houseCost: 150
+  },
+  pacific: {
+    type: "street",
+    color: "green",
+    price: 300,
+    mortgage: 150,
+    rent: [26, 130, 390, 900, 1100, 1275],
+    houseCost: 200
+  },
+  north_carolina: {
+    type: "street",
+    color: "green",
+    price: 300,
+    mortgage: 150,
+    rent: [26, 130, 390, 900, 1100, 1275],
+    houseCost: 200
+  },
+  pennsylvania: {
+    type: "street",
+    color: "green",
+    price: 320,
+    mortgage: 160,
+    rent: [28, 150, 450, 1000, 1200, 1400],
+    houseCost: 200
+  },
+  park_place: {
+    type: "street",
+    color: "dark_blue",
+    price: 350,
+    mortgage: 175,
+    rent: [35, 175, 500, 1100, 1300, 1500],
+    houseCost: 200
+  },
+  boardwalk: {
+    type: "street",
+    color: "dark_blue",
+    price: 400,
+    mortgage: 200,
+    rent: [50, 200, 600, 1400, 1700, 2000],
+    houseCost: 200
+  },
+  reading_rr: {
+    type: "railroad",
+    price: 200,
+    mortgage: 100,
+    rent: [25, 50, 100, 200]
+  },
+  pennsylvania_rr: {
+    type: "railroad",
+    price: 200,
+    mortgage: 100,
+    rent: [25, 50, 100, 200]
+  },
+  bo_rr: {
+    type: "railroad",
+    price: 200,
+    mortgage: 100,
+    rent: [25, 50, 100, 200]
+  },
+  short_line_rr: {
+    type: "railroad",
+    price: 200,
+    mortgage: 100,
+    rent: [25, 50, 100, 200]
+  },
+  electric_company: {
+    type: "utility",
+    price: 150,
+    mortgage: 75
+  },
+  water_works: {
+    type: "utility",
+    price: 150,
+    mortgage: 75
+  }
+};
+
 const BOARD_SIZE = 11;
 
 export const BOARD_GRID: (BoardSpace | null)[] = (() => {

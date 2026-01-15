@@ -5,6 +5,7 @@ import {
   BOARD_GRID,
   BOARD_SPACES,
   PROPERTY_COLOR_BY_ID,
+  PROPERTY_DETAILS,
   PROPERTY_NAME_BY_ID
 } from "./board";
 import {
@@ -53,6 +54,16 @@ type DiceRoll = {
   isDoubles: boolean;
 };
 
+type MoneyFlow = {
+  id: string;
+  from: string;
+  to: string;
+  amount: number;
+  context: string;
+  fromColor: string;
+  toColor: string;
+};
+
 export default function App() {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [gameIdInput, setGameIdInput] = useState("");
@@ -64,6 +75,7 @@ export default function App() {
   const [speed, setSpeed] = useState<"fast" | "normal" | "slow" | "watch">("normal");
   const [isCreating, setIsCreating] = useState(false);
   const [lastDice, setLastDice] = useState<DiceRoll | null>(null);
+  const [moneyFlow, setMoneyFlow] = useState<MoneyFlow | null>(null);
   const socketRef = useRef<Socket | null>(null);
 
   const sortedPlayers = useMemo(() => {
@@ -100,12 +112,39 @@ export default function App() {
     return map;
   }, [gameState]);
 
+  const propertiesByOwner = useMemo(() => {
+    const map = new Map<string, string[]>();
+    gameState?.properties?.forEach((property) => {
+      if (!property.owner_id) {
+        return;
+      }
+      const list = map.get(property.owner_id) || [];
+      list.push(property.property_id);
+      map.set(property.owner_id, list);
+    });
+    return map;
+  }, [gameState]);
+
   const currentPlayer = useMemo(() => {
     if (!gameState) {
       return null;
     }
     return gameState.players[gameState.current_player_index] || null;
   }, [gameState]);
+
+  const announceMoneyFlow = (flow: Omit<MoneyFlow, "id">) => {
+    const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    setMoneyFlow({ id, ...flow });
+    window.setTimeout(() => {
+      setMoneyFlow((prev) => (prev?.id === id ? null : prev));
+    }, 2400);
+  };
+
+  const getPlayerById = (playerId: string) =>
+    sortedPlayers.find((player) => player.id === playerId);
+
+  const getPositionName = (position: number) =>
+    BOARD_SPACES.find((space) => space.position === position)?.name || `Space ${position}`;
 
   const pushLog = (message: string, tone: LogEntry["tone"] = "info") => {
     setLogs((prev) => {
@@ -116,6 +155,122 @@ export default function App() {
       };
       return [entry, ...prev].slice(0, 150);
     });
+  };
+
+  const formatRentSummary = (propertyId: string) => {
+    const detail = PROPERTY_DETAILS[propertyId];
+    if (!detail) {
+      return "Rent: --";
+    }
+    if (detail.type === "utility") {
+      return "Rent: 4x dice (1 utility) / 10x dice (2 utilities)";
+    }
+    if (detail.type === "railroad") {
+      return "Rent: 25 / 50 / 100 / 200 (1-4 railroads)";
+    }
+    if (!detail.rent) {
+      return "Rent: --";
+    }
+    return `Rent: ${detail.rent.join(" / ")}`;
+  };
+
+  const formatPropertyLabel = (propertyId: string) => {
+    const name = PROPERTY_NAME_BY_ID[propertyId] || propertyId;
+    const detail = PROPERTY_DETAILS[propertyId];
+    if (!detail) {
+      return name;
+    }
+    return `${name} ($${detail.price})`;
+  };
+
+  const renderPropertyCard = (propertyId: string) => {
+    const detail = PROPERTY_DETAILS[propertyId];
+    const name = PROPERTY_NAME_BY_ID[propertyId] || propertyId;
+    if (!detail) {
+      return null;
+    }
+
+    if (detail.type === "utility") {
+      return (
+        <div className="property-card">
+          <div className="property-card-header">
+            <h3>{name}</h3>
+            <span className="property-type">Utility</span>
+          </div>
+          <div className="property-meta">
+            <span>Price: ${detail.price}</span>
+            <span>Mortgage: ${detail.mortgage}</span>
+          </div>
+          <div className="property-rent-grid">
+            <div>Rent (1 utility)</div>
+            <div>4x dice roll</div>
+            <div>Rent (2 utilities)</div>
+            <div>10x dice roll</div>
+          </div>
+        </div>
+      );
+    }
+
+    if (detail.type === "railroad") {
+      return (
+        <div className="property-card">
+          <div className="property-card-header">
+            <h3>{name}</h3>
+            <span className="property-type">Railroad</span>
+          </div>
+          <div className="property-meta">
+            <span>Price: ${detail.price}</span>
+            <span>Mortgage: ${detail.mortgage}</span>
+          </div>
+          <div className="property-rent-grid">
+            <div>Rent (1 RR)</div>
+            <div>${detail.rent?.[0] ?? "--"}</div>
+            <div>Rent (2 RR)</div>
+            <div>${detail.rent?.[1] ?? "--"}</div>
+            <div>Rent (3 RR)</div>
+            <div>${detail.rent?.[2] ?? "--"}</div>
+            <div>Rent (4 RR)</div>
+            <div>${detail.rent?.[3] ?? "--"}</div>
+          </div>
+        </div>
+      );
+    }
+
+    const baseRent = detail.rent?.[0] ?? 0;
+    return (
+      <div className="property-card">
+        <div className="property-card-header">
+          <h3>{name}</h3>
+          <span className="property-type">Property</span>
+        </div>
+        <div className="property-meta">
+          <span>Price: ${detail.price}</span>
+          <span>Mortgage: ${detail.mortgage}</span>
+        </div>
+        <div className="property-rent-grid">
+          <div>Rent</div>
+          <div>${baseRent}</div>
+          <div>With Color Set</div>
+          <div>${baseRent * 2}</div>
+          <div>With 1 House</div>
+          <div>${detail.rent?.[1] ?? "--"}</div>
+          <div>With 2 Houses</div>
+          <div>${detail.rent?.[2] ?? "--"}</div>
+          <div>With 3 Houses</div>
+          <div>${detail.rent?.[3] ?? "--"}</div>
+          <div>With 4 Houses</div>
+          <div>${detail.rent?.[4] ?? "--"}</div>
+          <div>With Hotel</div>
+          <div>${detail.rent?.[5] ?? "--"}</div>
+        </div>
+        {detail.houseCost ? (
+          <div className="property-meta">
+            <span>House Cost: ${detail.houseCost}</span>
+            <span>Hotel Cost: ${detail.houseCost}</span>
+          </div>
+        ) : null}
+      </div>
+    );
   };
 
   useEffect(() => {
@@ -180,6 +335,54 @@ export default function App() {
         pushLog(payload.result.message);
       } else if (payload?.action?.type) {
         pushLog(`${payload.player_name} executed ${payload.action.type}.`);
+      }
+
+      const actionType = payload.action?.type;
+      const player = getPlayerById(payload.player_id);
+      const playerColor = player ? playerColorMap.get(player.id) || "#9aa3b2" : "#9aa3b2";
+      const bankColor = "#5ae4a8";
+
+      if (actionType === "buy_property" && payload.action?.property_id) {
+        const price = PROPERTY_DETAILS[payload.action.property_id]?.price;
+        if (price) {
+          announceMoneyFlow({
+            from: payload.player_name,
+            to: "Bank",
+            amount: price,
+            context: "purchase",
+            fromColor: playerColor,
+            toColor: bankColor
+          });
+        }
+      }
+
+      if (payload?.result?.amount_paid && actionType !== "buy_property") {
+        let toLabel = "Bank";
+        let toColor = bankColor;
+
+        if (payload.result.new_position !== undefined) {
+          const space = BOARD_SPACES.find(
+            (candidate) => candidate.position === payload.result.new_position
+          );
+          const propertyId = space?.property_id;
+          const ownerId = propertyId
+            ? propertyStateById.get(propertyId)?.owner_id
+            : null;
+          const owner = ownerId ? getPlayerById(ownerId) : null;
+          if (owner && owner.id !== payload.player_id) {
+            toLabel = owner.name;
+            toColor = playerColorMap.get(owner.id) || bankColor;
+          }
+        }
+
+        announceMoneyFlow({
+          from: payload.player_name,
+          to: toLabel,
+          amount: payload.result.amount_paid,
+          context: actionType || "payment",
+          fromColor: playerColor,
+          toColor
+        });
       }
     });
 
@@ -322,9 +525,7 @@ export default function App() {
 
       <header className="topbar">
         <div>
-          <p className="eyebrow">AI Monopoly Arena</p>
-          <h1>Frontend Integration Flow</h1>
-          <p className="subtitle">Live agents streaming from the orchestrator.</p>
+          <h1>AI Monopoly Arena</h1>
         </div>
         <div className="status">
           <div>
@@ -355,17 +556,13 @@ export default function App() {
               ))}
             </div>
           </div>
-          {lastDice && (
-            <div className="dice-display">
-              <p className="label">Last Roll</p>
-              <div className="dice-values">
-                <span className="die">{lastDice.dice[0]}</span>
-                <span className="die">{lastDice.dice[1]}</span>
-                <span className="dice-total">= {lastDice.total}</span>
-                {lastDice.isDoubles && <span className="doubles">DOUBLES!</span>}
-              </div>
+          <div className="bank-chip">
+            <span className="bank-logo">$</span>
+            <div>
+              <p className="label">Bank</p>
+              <p className="value">Monopoly</p>
             </div>
-          )}
+          </div>
         </div>
       </header>
 
@@ -387,12 +584,22 @@ export default function App() {
               const ownerColor = propertyState?.owner_id
                 ? playerColorMap.get(propertyState.owner_id) || ""
                 : "";
+              const ownerName = propertyState?.owner_id
+                ? sortedPlayers.find((player) => player.id === propertyState.owner_id)?.name
+                : null;
               const bandColor = space.property_id
                 ? PROPERTY_COLOR_BY_ID[space.property_id] || ""
                 : "";
               const tokens = sortedPlayers.filter(
                 (player) => player.position === space.position && !player.is_bankrupt
               );
+              const getInitials = (name: string) =>
+                name
+                  .split(" ")
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .map((part) => part[0])
+                  .join("");
 
               return (
                 <div
@@ -405,6 +612,13 @@ export default function App() {
                   ) : null}
                   <div className="tile-name">{space.name}</div>
                   <div className="tile-type">{space.type.replace(/_/g, " ")}</div>
+                  {ownerName ? (
+                    <div className="owner-pill" style={{ background: ownerColor }}>
+                      {ownerName.split(" ")[0]}
+                    </div>
+                  ) : (
+                    <div className="owner-pill neutral">Unowned</div>
+                  )}
                   {propertyState?.houses ? (
                     <div className="house-count">Houses: {propertyState.houses}</div>
                   ) : null}
@@ -415,7 +629,9 @@ export default function App() {
                         className="token"
                         style={{ background: playerColorMap.get(token.id) }}
                         title={token.name}
-                      />
+                      >
+                        <span className="token-label">{getInitials(token.name)}</span>
+                      </span>
                     ))}
                   </div>
                 </div>
@@ -423,11 +639,49 @@ export default function App() {
             })}
             <div className="board-center">
               <div>
-                <p className="center-eyebrow">Live Feed</p>
-                <h3>{connection === "connected" ? "Connected" : "Idle"}</h3>
-                <p className="center-subtitle">
-                  {gameId ? "Streaming turn events." : "Create or join a game."}
-                </p>
+                {lastDice ? (
+                  <div className="dice-widget">
+                    <p className="center-eyebrow">Last Roll</p>
+                    <div className="dice-values">
+                      <span className="die">{lastDice.dice[0]}</span>
+                      <span className="die">{lastDice.dice[1]}</span>
+                      <span className="dice-total">= {lastDice.total}</span>
+                    </div>
+                    <p className="center-subtitle">
+                      {lastDice.playerName}
+                      {lastDice.isDoubles ? " · DOUBLES!" : ""}
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <p className="center-eyebrow">Live Feed</p>
+                    <h3>{connection === "connected" ? "Connected" : "Idle"}</h3>
+                    <p className="center-subtitle">
+                      {gameId ? "Streaming turn events." : "Create or join a game."}
+                    </p>
+                  </>
+                )}
+                {moneyFlow ? (
+                  <div className="money-flow">
+                    <div className="money-row">
+                      <span
+                        className="money-from"
+                        style={{ background: moneyFlow.fromColor }}
+                      >
+                        {moneyFlow.from}
+                      </span>
+                      <span className="money-arrow">→</span>
+                      <span
+                        className="money-to"
+                        style={{ background: moneyFlow.toColor }}
+                      >
+                        {moneyFlow.to}
+                      </span>
+                    </div>
+                    <div className="money-amount">${moneyFlow.amount}</div>
+                    <div className="money-context">{moneyFlow.context}</div>
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
@@ -498,19 +752,61 @@ export default function App() {
                   className={`player-card ${
                     gameState?.current_player_index === index ? "active" : ""
                   }`}
+                  style={{
+                    borderColor: playerColorMap.get(player.id),
+                    boxShadow: `0 12px 30px ${playerColorMap.get(player.id)}20`
+                  }}
                 >
                   <header>
-                    <span>{player.name}</span>
+                    <span className="player-name">
+                      <span
+                        className="player-color-dot"
+                        style={{ background: playerColorMap.get(player.id) }}
+                      />
+                      {player.name}
+                    </span>
                     <span className="tag">{player.personality}</span>
                   </header>
                   <div className="player-meta">
                     <span>{player.model}</span>
-                    <span>Pos {player.position}</span>
+                    <span>{getPositionName(player.position)}</span>
                   </div>
                   <div className="player-stats">
                     <span>Cash: ${player.cash.toLocaleString()}</span>
                     <span>Props: {propertyCountByOwner.get(player.id) || 0}</span>
                   </div>
+                  {gameState?.current_player_index === index ? (
+                    <div className="active-indicator">Active turn</div>
+                  ) : null}
+                  <details className="property-details">
+                    <summary>
+                      Properties ({propertyCountByOwner.get(player.id) || 0})
+                    </summary>
+                    <div className="property-mini-grid">
+                      {(propertiesByOwner.get(player.id) || []).map((propertyId) => (
+                        <div key={propertyId} className="property-mini-card">
+                          <div className="property-mini-title">
+                            <span
+                              className="mini-color"
+                              style={{
+                                background: PROPERTY_COLOR_BY_ID[propertyId] || "#2a3444"
+                              }}
+                            />
+                            <strong>{PROPERTY_NAME_BY_ID[propertyId] || propertyId}</strong>
+                          </div>
+                          <div className="property-mini-meta">
+                            {formatPropertyLabel(propertyId)}
+                          </div>
+                          <div className="property-mini-rent">
+                            {formatRentSummary(propertyId)}
+                          </div>
+                        </div>
+                      ))}
+                      {(propertiesByOwner.get(player.id) || []).length === 0 && (
+                        <div className="muted">No properties yet.</div>
+                      )}
+                    </div>
+                  </details>
                 </div>
               ))}
             </div>
@@ -542,10 +838,10 @@ export default function App() {
 
       <section className="panel log-panel">
         <div className="panel-header">
-          <h2>Board Ownership</h2>
+          <h2>Property Intel</h2>
           <span className="pill">{BOARD_SPACES.length} tiles</span>
         </div>
-        <ul className="log">
+        <div className="property-cards">
           {BOARD_SPACES.filter((space) => space.property_id).map((space) => {
             const ownerId = space.property_id
               ? propertyStateById.get(space.property_id)?.owner_id
@@ -553,13 +849,32 @@ export default function App() {
             const ownerName = ownerId
               ? sortedPlayers.find((player) => player.id === ownerId)?.name
               : "Unowned";
+            const ownerColor = ownerId ? playerColorMap.get(ownerId) : undefined;
+            const bandColor = space.property_id
+              ? PROPERTY_COLOR_BY_ID[space.property_id] || ""
+              : "";
             return (
-              <li key={space.position}>
-                {space.name} · {ownerName}
-              </li>
+              <div
+                key={space.position}
+                className="property-card-wrap"
+                style={ownerColor ? { borderColor: ownerColor } : undefined}
+              >
+                <div
+                  className="property-card-band"
+                  style={{ background: bandColor || "#2a3444" }}
+                />
+                <div className="property-owner">
+                  <span
+                    className="owner-dot"
+                    style={{ background: ownerColor || "#3a4456" }}
+                  />
+                  Owner: {ownerName}
+                </div>
+                {space.property_id ? renderPropertyCard(space.property_id) : null}
+              </div>
             );
           })}
-        </ul>
+        </div>
       </section>
     </div>
   );

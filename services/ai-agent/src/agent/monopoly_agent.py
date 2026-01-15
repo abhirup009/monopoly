@@ -1,9 +1,10 @@
 """Monopoly-playing AI agent."""
 
 import logging
+import random
 from uuid import UUID
 
-from src.client.models import Action, GameState, ValidActions
+from src.client.models import Action, ActionType, GameState, ValidActions
 from src.llm.ollama_client import OllamaClient
 from src.llm.session import AgentSession
 from src.parser.action_parser import ActionParser
@@ -60,6 +61,14 @@ class MonopolyAgent:
         Returns:
             The chosen action
         """
+        policy_action = self._get_buy_policy_action(game_state, valid_actions)
+        if policy_action:
+            logger.info(
+                f"Agent '{self.player_name}' policy chose: {policy_action.type.value}"
+                f"{f' ({policy_action.property_id})' if policy_action.property_id else ''}"
+            )
+            return policy_action
+
         # Build system prompt with personality
         system_prompt = self.personality_config.system_prompt.format(
             player_name=self.player_name
@@ -134,3 +143,37 @@ class MonopolyAgent:
         """Reset the agent's conversation context."""
         self.session.reset_context()
         logger.info(f"Agent '{self.player_name}' context reset")
+
+    def _get_buy_policy_action(
+        self,
+        game_state: GameState,
+        valid_actions: ValidActions,
+    ) -> Action | None:
+        """Apply a deterministic buy/pass policy for property decisions."""
+        buy_action = next(
+            (action for action in valid_actions.actions if action.type == ActionType.BUY_PROPERTY),
+            None,
+        )
+        if not buy_action:
+            return None
+
+        player = next(
+            (p for p in game_state.players if p.id == self.player_id),
+            None,
+        )
+        if not player or buy_action.cost is None:
+            return None
+
+        cash_after = player.cash - buy_action.cost
+
+        if self.personality == "aggressive":
+            should_buy = cash_after >= 0
+        elif self.personality == "analytical":
+            should_buy = cash_after >= 150
+        else:
+            should_buy = cash_after >= 0 and random.random() < 0.7
+
+        if should_buy:
+            return Action(type=ActionType.BUY_PROPERTY, property_id=buy_action.property_id)
+
+        return Action(type=ActionType.PASS_PROPERTY, property_id=buy_action.property_id)
