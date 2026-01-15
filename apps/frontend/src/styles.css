@@ -136,6 +136,57 @@ h3 {
   cursor: not-allowed;
 }
 
+.dice-display {
+  margin-left: 16px;
+  padding-left: 16px;
+  border-left: 1px solid var(--stroke);
+}
+
+.dice-values {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.die {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, #2a3444 0%, #1a2230 100%);
+  border: 2px solid var(--accent);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: var(--accent);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.dice-total {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.doubles {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--good);
+  background: rgba(90, 228, 168, 0.15);
+  padding: 4px 8px;
+  border-radius: 4px;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
 .layout {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.9fr);

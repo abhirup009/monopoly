@@ -46,6 +46,13 @@ type LogEntry = {
   tone?: "info" | "warn" | "error";
 };
 
+type DiceRoll = {
+  dice: [number, number];
+  total: number;
+  playerName: string;
+  isDoubles: boolean;
+};
+
 export default function App() {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [gameIdInput, setGameIdInput] = useState("");
@@ -54,8 +61,9 @@ export default function App() {
     "disconnected"
   );
   const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [speed, setSpeed] = useState<"fast" | "normal" | "slow">("normal");
+  const [speed, setSpeed] = useState<"fast" | "normal" | "slow" | "watch">("normal");
   const [isCreating, setIsCreating] = useState(false);
+  const [lastDice, setLastDice] = useState<DiceRoll | null>(null);
   const socketRef = useRef<Socket | null>(null);
 
   const sortedPlayers = useMemo(() => {
@@ -184,8 +192,16 @@ export default function App() {
       pushLog(`${payload.player_name} decided ${payload.action.type}.${detail}`);
     });
 
-    socket.on("dice:rolled", (payload: { player_name: string; total: number }) => {
-      pushLog(`${payload.player_name} rolled ${payload.total}.`);
+    socket.on("dice:rolled", (payload: { player_name: string; total: number; dice?: [number, number] }) => {
+      const dice = payload.dice || [Math.ceil(payload.total / 2), Math.floor(payload.total / 2)];
+      const isDoubles = dice[0] === dice[1];
+      setLastDice({
+        dice: dice as [number, number],
+        total: payload.total,
+        playerName: payload.player_name,
+        isDoubles
+      });
+      pushLog(`${payload.player_name} rolled ${dice[0]} + ${dice[1]} = ${payload.total}${isDoubles ? " (DOUBLES!)" : ""}`);
     });
 
     socket.on("player:moved", (payload: PlayerMovedEvent) => {
@@ -267,7 +283,7 @@ export default function App() {
     }
   };
 
-  const handleSpeedChange = (nextSpeed: "fast" | "normal" | "slow") => {
+  const handleSpeedChange = (nextSpeed: "fast" | "normal" | "slow" | "watch") => {
     setSpeed(nextSpeed);
     if (!gameId || !socketRef.current) {
       return;
@@ -305,7 +321,7 @@ export default function App() {
           <div>
             <p className="label">Speed</p>
             <div className="segmented">
-              {(["fast", "normal", "slow"] as const).map((option) => (
+              {(["fast", "normal", "slow", "watch"] as const).map((option) => (
                 <button
                   key={option}
                   className={speed === option ? "active" : ""}
@@ -318,6 +334,17 @@ export default function App() {
               ))}
             </div>
           </div>
+          {lastDice && (
+            <div className="dice-display">
+              <p className="label">Last Roll</p>
+              <div className="dice-values">
+                <span className="die">{lastDice.dice[0]}</span>
+                <span className="die">{lastDice.dice[1]}</span>
+                <span className="dice-total">= {lastDice.total}</span>
+                {lastDice.isDoubles && <span className="doubles">DOUBLES!</span>}
+              </div>
+            </div>
+          )}
         </div>
       </header>
 

@@ -14,6 +14,7 @@ class GameSpeed(str, Enum):
     FAST = "fast"
     NORMAL = "normal"
     SLOW = "slow"
+    WATCH = "watch"  # Very slow for users to follow along
 
 
 # Speed delays in seconds
@@ -21,6 +22,7 @@ SPEED_DELAYS = {
     GameSpeed.FAST: 0.5,
     GameSpeed.NORMAL: 2.0,
     GameSpeed.SLOW: 5.0,
+    GameSpeed.WATCH: 10.0,  # 10 seconds between actions for easy following
 }
 
 
