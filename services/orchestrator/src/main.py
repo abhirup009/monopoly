@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 import socketio
 import uvicorn
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from src.api.routes import router, set_dependencies
 from src.clients.ai_agent import AIAgentClient
@@ -83,6 +84,14 @@ app = FastAPI(
     description="Game coordination and WebSocket server for Monopoly Arena",
     version="0.1.0",
     lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Include API routes
